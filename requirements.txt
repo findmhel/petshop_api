@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+sqlalchemy
+aiosqlite
+pydantic
+python-dotenv
+
+//Não adicionar o twilio já que a api é apenas uma simulação
