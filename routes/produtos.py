@@ -1,21 +1,29 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from typing import List
-from .. import models, models_db
-from ..database import get_db
-from ..auth import get_current_username
+from flask import Blueprint, request, jsonify
+from petshop_api import db
+from petshop_api.models import Produto
 
-router = APIRouter()
+bp = Blueprint('produtos', __name__)
 
-@router.post("/", status_code=201)
-def adicionar_produto(produto: models.ProdutoCreate, db: Session = Depends(get_db)):
-    novo = models_db.Produto(**produto.dict())
-    db.add(novo)
-    db.commit()
-    db.refresh(novo)
-    return {"msg": "Produto adicionado", "id": novo.id}
+@bp.route('/', methods=['GET'])
+def listar_produtos():
+    produtos = Produto.query.all()
+    return jsonify([{
+        "id": p.id,
+        "nome": p.nome,
+        "categoria": p.categoria,
+        "preco": p.preco,
+        "estoque": p.estoque
+    } for p in produtos])
 
-@router.get("/", response_model=List[models.ProdutoCreate])
-def listar_produtos(db: Session = Depends(get_db)):
-    produtos = db.query(models_db.Produto).all()
-    return produtos
+@bp.route('/', methods=['POST'])
+def adicionar_produto():
+    data = request.json
+    novo = Produto(
+        nome=data['nome'],
+        categoria=data['categoria'],
+        preco=data['preco'],
+        estoque=data['estoque']
+    )
+    db.session.add(novo)
+    db.session.commit()
+    return jsonify({"mensagem": "Produto adicionado com sucesso."}), 201

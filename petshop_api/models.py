@@ -1,38 +1,94 @@
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, EmailStr
+from typing import Optional, List
+from datetime import datetime
 
-class Produto(BaseModel):
-    id: Optional[int] = None
+#usuario
+
+class UserCreate(BaseModel):
     nome: str
+    email: EmailStr
+    senha: str
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    senha: str
+
+class User(BaseModel):
+    id: int
+    nome: str
+    email: EmailStr
+
+    class Config:
+        orm_mode = True
+
+#produtos
+
+class ProdutoBase(BaseModel):
+    nome: str
+    descricao: Optional[str] = None
     preco: float
-    descricao: str
-    estoque: int
-    categoria: str
+    categoria: str  # brinquedos, higiene, comida, roupas, utensílios, etc.
 
-class Cliente(BaseModel):
-    id: Optional[int] = None
-    nome: str
-    email: str
-    telefone: str
+class ProdutoCreate(ProdutoBase):
+    pass
 
-class Pedido(BaseModel):
-    id: Optional[int] = None
-    cliente_nome: str
+class Produto(ProdutoBase):
+    id: int
+
+    class Config:
+        orm_mode = True
+
+#consultas veterinárias
+
+class ConsultaBase(BaseModel):
+    cliente_id: int
+    nome_pet: str
+    data_hora: str  # formato: YYYY-MM-DD HH:MM
+    motivo: Optional[str] = None
+
+class ConsultaCreate(ConsultaBase):
+    pass
+
+class Consulta(ConsultaBase):
+    id: int
+
+    class Config:
+        orm_mode = True
+
+#banho e tosa
+
+class BanhoTosaBase(BaseModel):
+    cliente_id: int
+    nome_pet: str
+    servico: str  # banho, tosa, banho e tosa
+    data_hora: str
+
+class BanhoTosaCreate(BanhoTosaBase):
+    pass
+
+class BanhoTosa(BanhoTosaBase):
+    id: int
+
+    class Config:
+        orm_mode = True
+
+#pedidos
+
+class PedidoProduto(BaseModel):
     produto_id: int
     quantidade: int
+
+class PedidoBase(BaseModel):
+    cliente_id: int
+    produtos: List[PedidoProduto]
+
+class PedidoCreate(PedidoBase):
+    pass
+
+class Pedido(PedidoBase):
+    id: int
+    data_hora: datetime
     total: float
 
-class Consulta(BaseModel):
-    id: Optional[int] = None
-    cliente_nome: str
-    pet_nome: str
-    data_hora: str
-    veterinario: str
-    observacoes: Optional[str] = None
-
-class BanhoTosa(BaseModel):
-    id: Optional[int] = None
-    cliente_nome: str
-    pet_nome: str
-    servico: str
-    data_hora: str
+    class Config:
+        orm_mode = True

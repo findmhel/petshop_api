@@ -1,23 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from .. import models, models_db
-from ..database import get_db
-from ..auth import get_current_username
+from flask import Blueprint, request, jsonify
+from petshop_api import db
+from petshop_api.models import Pedido
+from petshop_api.notifications import enviar_mensagem
 
-router = APIRouter()
+bp = Blueprint('pedidos', __name__)
 
-def enviar_mensagem(telefone: str, mensagem: str):
-    print(f"[SIMULAÇÃO] Enviando mensagem para {telefone}: {mensagem}")
+@bp.route('/', methods=['POST'])
+def realizar_pedido():
+    data = request.json
+    pedido = Pedido(
+        cliente_id=data['cliente_id'],
+        produto_id=data['produto_id'],
+        quantidade=data['quantidade']
+    )
+    db.session.add(pedido)
+    db.session.commit()
 
-@router.post("/", status_code=201)
-def realizar_compra(compra: models.CompraCreate, db: Session = Depends(get_db)):
-    produto = db.query(models_db.Produto).filter(models_db.Produto.id == compra.produto_id).first()
-    if not produto:
-        raise HTTPException(status_code=404, detail="Produto não encontrado")
-    novo = models_db.Compra(**compra.dict())
-    db.add(novo)
-    db.commit()
-    db.refresh(novo)
+    enviar_mensagem(f"Pedido realizado com sucesso! ID do pedido: {pedido.id}")
 
-    enviar_mensagem(compra.telefone, f"Compra realizada: {produto.nome}. Obrigado!")
-    return {"msg": "Compra realizada", "id": novo.id}
+    return jsonify({"mensagem": "Pedido registrado com sucesso."}), 201

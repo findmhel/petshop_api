@@ -1,34 +1,79 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey
-from sqlalchemy.orm import relationship
-from .database import Base
+import sqlite3
+import os
 
-class Consulta(Base):
-    __tablename__ = 'consultas'
-    id = Column(Integer, primary_key=True, index=True)
-    nome_pet = Column(String, index=True)
-    dono = Column(String)
-    telefone = Column(String)
-    data = Column(String)
+# Caminho absoluto do banco de dados
 
-class BanhoTosa(Base):
-    __tablename__ = 'banho_tosa'
-    id = Column(Integer, primary_key=True, index=True)
-    nome_pet = Column(String)
-    dono = Column(String)
-    telefone = Column(String)
-    data = Column(String)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "../petshop.db")
 
-class Produto(Base):
-    __tablename__ = 'produtos'
-    id = Column(Integer, primary_key=True, index=True)
-    nome = Column(String)
-    categoria = Column(String)
-    preco = Column(Float)
+# Conexão com o banco
 
-class Compra(Base):
-    __tablename__ = 'compras'
-    id = Column(Integer, primary_key=True, index=True)
-    comprador = Column(String)
-    telefone = Column(String)
-    produto_id = Column(Integer, ForeignKey('produtos.id'))
-    produto = relationship("Produto")
+db = sqlite3.connect(DB_PATH, check_same_thread=False)
+cursor = db.cursor()
+
+# Tabela de usuários
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS usuarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    senha TEXT NOT NULL
+)
+""")
+
+# Tabela de produtos
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS produtos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT NOT NULL,
+    descricao TEXT,
+    preco REAL NOT NULL,
+    categoria TEXT
+)
+""")
+
+# Tabela de pedidos
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS pedidos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_id INTEGER,
+    produto_id INTEGER,
+    quantidade INTEGER,
+    data TEXT,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
+    FOREIGN KEY (produto_id) REFERENCES produtos(id)
+)
+""")
+
+# Tabela de consultas veterinárias
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS consultas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_id INTEGER,
+    data TEXT NOT NULL,
+    horario TEXT NOT NULL,
+    tipo TEXT,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+)
+""")
+
+# Tabela de banho e tosa
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS banho_tosa (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_id INTEGER,
+    data TEXT NOT NULL,
+    horario TEXT NOT NULL,
+    servico TEXT,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+)
+""")
+
+# Aplicar mudanças no banco
+
+db.commit()

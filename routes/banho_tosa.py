@@ -1,20 +1,22 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-from .. import models, models_db
-from ..database import get_db
-from ..auth import get_current_username
+from flask import Blueprint, request, jsonify
+from petshop_api import db
+from petshop_api.models import BanhoTosa
+from petshop_api.notifications import enviar_mensagem
 
-router = APIRouter()
+bp = Blueprint('banho_tosa', __name__)
 
-def enviar_mensagem(telefone: str, mensagem: str):
-    print(f"[SIMULAÇÃO] Enviando mensagem para {telefone}: {mensagem}")
+@bp.route('/', methods=['POST'])
+def agendar_banho_tosa():
+    data = request.json
+    agendamento = BanhoTosa(
+        cliente_id=data['cliente_id'],
+        tipo_servico=data['tipo_servico'],
+        data=data['data'],
+        hora=data['hora']
+    )
+    db.session.add(agendamento)
+    db.session.commit()
 
-@router.post("/", status_code=201)
-def agendar_banho_tosa(agendamento: models.BanhoTosaCreate, db: Session = Depends(get_db)):
-    novo = models_db.BanhoTosa(**agendamento.dict())
-    db.add(novo)
-    db.commit()
-    db.refresh(novo)
+    enviar_mensagem(f"{data['tipo_servico']} agendado para {data['data']} às {data['hora']}.")
 
-    enviar_mensagem(agendamento.telefone, f"Banho e tosa agendado para {agendamento.nome_pet} em {agendamento.data}.")
-    return {"msg": "Banho e tosa agendado", "id": novo.id}
+    return jsonify({"mensagem": "Agendamento realizado com sucesso."}), 201
