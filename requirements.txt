@@ -1,8 +1,6 @@
-fastapi
-uvicorn
 sqlalchemy
-aiosqlite
-pydantic
+flask
 python-dotenv
-
-//Não adicionar o twilio já que a api é apenas uma simulação
+sqlite3
+python+3.18 
+#Não adicionar o twilio já que a api é apenas uma simulação

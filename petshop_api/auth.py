@@ -1,43 +1,77 @@
-from datetime import datetime, timedelta
-from flask import request, jsonify
-import jwt
+from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
-import sqlite3
+import jwt
+import datetime
 import os
 from dotenv import load_dotenv
+from functools import wraps
+from app.database import cursor, db
 
+# Carregar variáveis do .env
 load_dotenv()
+SECRET_KEY = os.getenv('SECRET_KEY')
 
-SECRET_KEY = os.getenv("SECRET_KEY", "segredo")
+# Criar Blueprint
+auth_bp = Blueprint('auth', __name__)
 
-def create_token(user_id):
-    payload = {
-        'user_id': user_id,
-        'exp': datetime.utcnow() + timedelta(hours=3)
-    }
-    token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')
-    return token
-
-def decode_token(token):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
-        return payload['user_id']
-    except jwt.ExpiredSignatureError:
-        return None
-    except jwt.InvalidTokenError:
-        return None
+# Middleware de verificação de token
 
 def token_required(f):
-    def decorator(*args, **kwargs):
+    @wraps(f)
+    def decorated(*args, **kwargs):
         token = None
         if 'Authorization' in request.headers:
-            bearer = request.headers['Authorization']
-            token = bearer.split()[1] if len(bearer.split()) > 1 else None
+            token = request.headers['Authorization'].split()[1]
+
         if not token:
-            return jsonify({'mensagem': 'Token ausente!'}), 401
-        user_id = decode_token(token)
-        if not user_id:
-            return jsonify({'mensagem': 'Token inválido!'}), 401
-        return f(user_id, *args, **kwargs)
-    decorator.__name__ = f.__name__
-    return decorator
+            return jsonify({'msg': 'Token ausente'}), 403
+
+        try:
+            data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            current_user_id = data['user_id']
+        except:
+            return jsonify({'msg': 'Token inválido ou expirado'}), 403
+
+        return f(current_user_id, *args, **kwargs)
+    return decorated
+
+# Rota de cadastro
+
+@auth_bp.route('/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    if not username or not password:
+        return jsonify({'msg': 'Preencha todos os campos'}), 400
+
+    # Verifica se usuário já existe
+    existing = cursor.execute("SELECT * FROM usuarios WHERE username = ?", (username,)).fetchone()
+    if existing:
+        return jsonify({'msg': 'Usuário já existe'}), 409
+
+    hashed_password = generate_password_hash(password)
+    cursor.execute("INSERT INTO usuarios (username, password) VALUES (?, ?)", (username, hashed_password))
+    db.commit()
+    return jsonify({'msg': 'Usuário cadastrado com sucesso!'}), 201
+
+# Rota de login
+
+@auth_bp.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    user = cursor.execute("SELECT * FROM usuarios WHERE username = ?", (username,)).fetchone()
+    if not user or not check_password_hash(user[2], password):
+        return jsonify({'msg': 'Credenciais inválidas'}), 401
+
+    # Cria o token
+    token = jwt.encode({
+        'user_id': user[0],
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=2)
+    }, SECRET_KEY, algorithm='HS256')
+
+    return jsonify({'token': token}), 200
